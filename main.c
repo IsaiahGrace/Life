@@ -6,6 +6,30 @@
 #include <sys/ioctl.h>
 #include <termios.h>
 
+#define COLOR
+#ifdef COLOR
+#define RED     "\x1b[31m"
+#define GREEN   "\x1b[32m"
+#define YELLOW  "\x1b[33m"
+#define BLUE    "\x1b[34m"
+#define MAGENTA "\x1b[35m"
+#define CYAN    "\x1b[36m"
+#define BLACK   "\x1b[22"
+#define RESET   "\x1b[0m"
+#endif
+
+#ifndef COLOR
+#define RED     ""
+#define GREEN   ""
+#define YELLOW  ""
+#define BLUE    ""
+#define MAGENTA ""
+#define CYAN    ""
+#define BLACK   ""
+#define RESET   ""
+#endif
+//#define PURDUE  "\x1b[38;2;<194>;<142>;<14>m"
+
 int main(int argc, char **argv) {
 
   int i;
@@ -16,6 +40,7 @@ int main(int argc, char **argv) {
   int height; //ascociate with i
   int width; //ascociate with j
 
+
   if(argc == 3) {
     height = atoi(argv[1]);
     width = atoi(argv[2]);
@@ -24,16 +49,23 @@ int main(int argc, char **argv) {
   	ioctl( 0, TIOCGWINSZ, (char *) &size );
     //printf( "Rows: %u\nCols: %u\n", size.ws_row, size.ws_col);
     height = size.ws_row - 1;
-    width = size.ws_col;
+    width = size.ws_col + 2;
   }
 
-  srand(time(NULL));
+  if(argc == 2) {
+    srand(atoi(argv[1]));
+  } else {
+    srand(time(NULL));
+  }
+
 
   int **map = malloc(height * sizeof(int *));
   int **next = malloc(height * sizeof(int *));
+  int **prev = malloc(height * sizeof(int *));
   for(i = 0; i < height; i++) {
     map[i] = malloc(width * sizeof(int));
     next[i] = malloc(width * sizeof(int));
+    prev[i] = malloc(width * sizeof(int));
   }
 
   //Initilize Map
@@ -41,19 +73,72 @@ int main(int argc, char **argv) {
     for(j = 0; j < width; j++) {
       if(i == 0 || j == 0 || i == (height - 1) || j == (width - 1)) {
       map[i][j] = 0;
-    } else {//if (i == 1 || i == (height - 2) || j == 1 || j == (width - 2)) {
-      //map[i][j] = 1;
+    } else {
       map[i][j] = (rand() & 1);
-    } //else {
-      //map[i][j] = 0;
-    //}
+    }
       next[i][j] = 0;
+      prev[i][j] = 0;
     }
     printf("\n");
   }
   printf("\033[1A");
 
-  for(k = 0; k < 100; k++) {
+  //Hardcode a glider
+  /*
+  map[1][2] = 1;
+  map[2][3] = 1;
+  map[3][1] = 1;
+  map[3][2] = 1;
+  map[3][3] = 1;
+  */
+
+  //Hardcode a glider gun
+  /*
+  map[6][2] = 1;
+  map[7][2] = 1;
+  map[6][3] = 1;
+  map[7][3] = 1;
+
+  map[6][12] = 1;
+  map[7][12] = 1;
+  map[8][12] = 1;
+  map[5][13] = 1;
+  map[9][13] = 1;
+  map[4][14] = 1;
+  map[10][14] = 1;
+  map[4][15] = 1;
+  map[10][15] = 1;
+
+  map[7][16] = 1;
+
+  map[5][17] = 1;
+  map[9][17] = 1;
+  map[6][18] = 1;
+  map[7][18] = 1;
+  map[8][18] = 1;
+  map[7][19] = 1;
+
+  map[4][22] = 1;
+  map[5][22] = 1;
+  map[6][22] = 1;
+  map[4][23] = 1;
+  map[5][23] = 1;
+  map[6][23] = 1;
+  map[3][24] = 1;
+  map[7][24] = 1;
+  map[2][26] = 1;
+  map[3][26] = 1;
+  map[7][26] = 1;
+  map[8][26] = 1;
+
+  map[4][36] = 1;
+  map[5][36] = 1;
+  map[4][37] = 1;
+  map[5][37] = 1;
+  */
+
+  //Start LIFE
+  for(k = 0; k < 1000; k++) {
     //Print Map as is
     alive = 0;
     for(i = 0; i < height - 1; i++) {
@@ -63,10 +148,18 @@ int main(int argc, char **argv) {
     for(i = 1; i < height - 1; i++) {
       for(j = 1; j < width - 1; j++) {
         if(map[i][j]) {
-          printf("\u2588");
+          if(prev[i][j]) {
+            printf(""RESET"\u2588");
+          } else {
+            printf(""GREEN"\u2588");
+          }
           alive = 1;
         } else {
-          printf("\u2591");
+          if(prev[i][j]) {
+            printf(""RED"\u2591");
+          } else {
+          printf(""RESET"\u2591");
+          }
         }
       }
       printf("\n");
@@ -102,22 +195,25 @@ int main(int argc, char **argv) {
     for(i = 0; i < height - 1; i++) {
       for(j = 0; j < width - 1; j++) {
         if(map[i][j] != next[i][j]) {alive = 1;}
+        prev[i][j] = map[i][j];
         map[i][j] = next[i][j];
         next[i][j] = 0;
       }
     }
     if(!alive) {break;}
-    //wait one second 1_000_000 = 1 sec
-    usleep(100000);
+    //wait one second 1,000,000 = 1 sec
+    usleep(10000);
   }
 
   //Free malloc'd memory
   for(i = 0; i < height; i++) {
     free(map[i]);
     free(next[i]);
+    free(prev[i]);
   }
   free(map);
   free(next);
+  free(prev);
 
   return EXIT_SUCCESS;
 }
